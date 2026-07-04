@@ -1,65 +1,152 @@
-# Svelte library
+# 📝 Svelte Writable Search Params
 
-Everything you need to build a Svelte library, powered by [`sv`](https://npmjs.com/package/sv).
+Reactive writable search parameters for Svelte, complete with validation!
 
-Read more about creating a library [in the docs](https://svelte.dev/docs/kit/packaging).
+```javascript
+const params = WritableSearchParams(window.location.search);
 
-## Creating a project
+const page = params.createStateFor("page", PositiveIntegerSchema, 1);
 
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+function incrementPage() {
+  page.value += 1;
+}
 ```
 
-To recreate this project with the same configuration:
+<!-- prettier-ignore-start -->
+```html
+Current Page: {page.value}
+<button onclick={incrementPage}>Next Page</button>
+```
+<!-- prettier-ignore-end -->
+
+## Installing
 
 ```sh
-# recreate this project
-pnpm dlx sv@0.16.1 create --template library --types ts --add prettier eslint --install pnpm ./svelte-writable-search-params
+npm install svelte-writable-search-params
+# or
+yarn add svelte-writable-search-params
+# or
+pnpm add svelte-writable-search-params
 ```
 
-## Developing
+## Requirements
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+- Svelte 5 or later
+- Any validation library that supports Standard Schema V1
+- Navigation API (on browser-side)
+  - If you wish to support browsers that do not have the Navigation API, you can add a polyfill
 
-```sh
-npm run dev
+Works with SvelteKit, but it is not required.
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+## How to use
+
+### Setting up
+
+Pass the initial search parameters to `WritableSearchParams(...)`, this can be any valid initial value that can be passed to `new URLSearchParams(...)`. This value will only be used for initialisation and does not need to be reactive, any updates will be read directly from the current URL (`window.location`).
+
+Browser-only / no SSR:
+
+```javascript
+import { WritableSearchParams } from "svelte-writable-search-params";
+
+const params = WritableSearchParams(window.location.href);
+// params.current will be will be an instance of SvelteURLSearchParams
 ```
 
-Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
+SvelteKit with SSR:
 
-## Building
+```javascript
+import { WritableSearchParams } from "svelte-writable-search-params";
+import { page } from "$app/state";
 
-To build your library:
-
-```sh
-npm pack
+// use page.url.search instead so tha the initial render will be accurate
+const params = WritableSearchParams(page.url.search);
 ```
 
-To create a production version of your showcase app:
+For other frameworks/setup, refer to their documentation on how to read the current search parameters.
 
-```sh
-npm run build
+### Reading Params (Unvalidated)
+
+```javascript
+const pageParam = $derived(params.current.get("page"));
+// pageParam will be string | null
 ```
 
-You can preview the production build with `npm run preview`.
+### Writing Params (Unvalidated)
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+```javascript
+params.current.set("page", "2");
+```
 
-## Publishing
+### Other Methods
 
-Go into the `package.json` and give your package the desired name through the `"name"` option. Also consider adding a `"license"` field and point it to a `LICENSE` file which you can create from a template (one popular option is the [MIT license](https://opensource.org/license/mit/)).
+Since `params.current` is an instance of `SvelteURLSearchParams`, any valid methods and properties for `SvelteURLSearchParams` can be used. Any updates and changes to it will be automatically reflected in the URL.
 
-To publish your library to [npm](https://www.npmjs.com):
+**⚠️ Note:** Always use `params.current` or a `$derived(...)` value to get reactive parameters, as the entire instance will be replaced on external navigation. For example, when the user navigates back and forth with the browser controls.
 
-```sh
-npm publish
+## Validated Params
+
+```javascript
+// using Valibot as an example, feel free to use your favourite library
+const StrToIntSchema = v.pipe(v.string(), v.toNumber(), v.integer());
+
+// pass in (key, schema, fallbackValue)
+const page = params.createStateFor("page", StrToIntSchema, 1);
+// fallback value will be used if validation fails, or param is missing
+
+function increment() {
+  page.value += 1;
+  // will automatically update the URL using shallow navigation
+  // e.g. from "/books" to "/books?page=2"
+  // or from "/books?page=2" to "/books?page=3"
+}
+```
+
+Works great with search boxes too:
+
+```javascript
+const query = params.createStateFor("q", v.string(), "");
+```
+
+<!-- prettier-ignore-start -->
+```html
+<input type="text" bind:value={query.value} />
+```
+<!-- prettier-ignore-end -->
+
+The URL will update as the user types, without interruptions or losing focus.
+
+### Async Validation
+
+For async schemas, you will need to use `createStateFor_async(...)` instead.
+
+```javascript
+const page = params.createStateFor("page", MyAsyncSchema, 1);
+// page.value will be Promise<number>
+```
+
+## Usage with SvelteKit Remote Functions
+
+```javascript
+const query = params.createStateFor("q", v.string(), "");
+
+// ⚠️ Note: you may need to enable experimental settings
+// Check SvelteKit documentation for details
+const foundBooks = $derived(await findBooksByTitle(query.value));
+```
+
+<!-- prettier-ignore-start -->
+```html
+<input type="text" bind:value={query.value} placeholder="Search All Books..." />
+```
+<!-- prettier-ignore-end -->
+
+## Notes
+
+This library uses shallow navigation to update the search parameters, and may not trigger data reload automatically depending on the library used.
+
+By default, updates will add entries to the browser's history stack, to replace instead of pushing entries, provide a configuration.
+
+```javascript
+const params = WritableSearchParams(window.location.search, { replace: true });
 ```

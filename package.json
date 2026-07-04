@@ -1,6 +1,8 @@
 {
 	"name": "svelte-writable-search-params",
 	"version": "0.0.1",
+	"license": "MIT",
+	"author": "Alex L <iamriot.dev@gmail.com>",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run prepack",
@@ -34,6 +36,7 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
+		"@standard-schema/spec": "^1.1.0",
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/package": "^2.5.8",
@@ -50,9 +53,15 @@
 		"svelte-check": "^4.6.0",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.60.1",
+		"valibot": "^1.4.2",
 		"vite": "^8.0.16"
 	},
 	"keywords": [
-		"svelte"
+		"svelte",
+		"sveltekit",
+		"search-params",
+		"search params",
+		"query-params",
+		"query params"
 	]
 }
