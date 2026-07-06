@@ -1,10 +1,6 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { untrack } from "svelte";
+import { onMount, untrack } from "svelte";
 import { SvelteURLSearchParams } from "svelte/reactivity";
-
-type WritableSearchParams = {
-	readonly current: SvelteURLSearchParams;
-};
 
 const SYM = Symbol("WritableSearchParams");
 
@@ -23,7 +19,7 @@ export function WritableSearchParams(init: Init, config?: Config) {
 
 	let prevStr = $state(state.value.toString());
 
-	$effect(() => {
+	onMount(() => {
 		const ac = new AbortController();
 
 		navigation.addEventListener(
@@ -108,7 +104,7 @@ export function WritableSearchParams(init: Init, config?: Config) {
 				},
 			});
 		},
-	};
+	} as WritableSearchParams;
 }
 
 function validatedReactiveParam<
@@ -119,7 +115,7 @@ function validatedReactiveParam<
 	fallback: StandardSchemaV1.InferOutput<S>,
 	config: {
 		encoder?: (value: StandardSchemaV1.InferOutput<S>) => string;
-		with: WritableSearchParams;
+		with: BaseWritableSearchParams;
 	},
 ) {
 	const params = config.with;
@@ -160,7 +156,7 @@ function asyncValidatedReactiveParam<
 	fallback: StandardSchemaV1.InferOutput<S>,
 	config: {
 		encoder?: (value: StandardSchemaV1.InferOutput<S>) => string;
-		with: WritableSearchParams;
+		with: BaseWritableSearchParams;
 	},
 ) {
 	const params = config.with;
