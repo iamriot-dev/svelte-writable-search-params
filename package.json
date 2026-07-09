@@ -1,6 +1,6 @@
 {
 	"name": "svelte-writable-search-params",
-	"version": "0.0.3",
+	"version": "0.1.0",
 	"license": "MIT",
 	"author": "Alex L <iamriot.dev@gmail.com>",
 	"scripts": {
