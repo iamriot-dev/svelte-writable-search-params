@@ -24,7 +24,7 @@ export function WritableSearchParams<
 	type Output = StandardSchemaV1.InferOutput<S>;
 
 	function deleteState() {
-		Object.keys(state).forEach((k) => {
+		Object.getOwnPropertyNames(state).forEach((k) => {
 			delete state[k];
 		});
 	}
