@@ -1,2 +1,2 @@
 // Reexport your entry components here
-export { WritableSearchParams } from "./WritableSearchParams.svelte.ts";
+export { WritableSearchParams } from "./WritableSearchObject.svelte.ts";

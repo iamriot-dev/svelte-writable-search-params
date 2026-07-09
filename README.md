@@ -3,12 +3,11 @@
 Reactive writable search parameters for Svelte, complete with validation!
 
 ```javascript
-const params = WritableSearchParams(window.location.search);
-
-const page = params.createStateFor("page", PositiveIntegerSchema, 1);
+// use any StandardSchemaV1
+const params = WritableSearchParams(MySchema, window.location.search);
 
 function incrementPage() {
-  page.value += 1;
+  params.page += 1;
 }
 ```
 
@@ -33,24 +32,23 @@ pnpm add svelte-writable-search-params
 
 - Svelte 5 or later
 - Any validation library that supports Standard Schema V1
+  - e.g. Zod, Valibot, ArkType, yup, Joi
 - Navigation API (on browser-side)
   - If you wish to support browsers that do not have the Navigation API, you can add a polyfill
 
 Works with SvelteKit, but it is not required.
 
-## How to use
+## Setting Up
 
-### Setting up
-
-Pass the initial search parameters to `WritableSearchParams(...)`, this can be any valid initial value that can be passed to `new URLSearchParams(...)`. This value will only be used for initialisation and does not need to be reactive, any updates will be read directly from the current URL (`window.location`).
+Pass your schema and the initial search parameters to `WritableSearchParams(...)`. The initial value can be any valid value that can be passed to `new URLSearchParams(...)`. This value will only be used for initialisation and does not need to be reactive, any updates will be read directly from the current URL (`window.location`).
 
 Browser-only / no SSR:
 
 ```javascript
 import { WritableSearchParams } from "svelte-writable-search-params";
 
-const params = WritableSearchParams(window.location.href);
-// params.current will be will be an instance of SvelteURLSearchParams
+const params = WritableSearchParams(MySchema, window.location.href);
+// params will be a reactive object matching the provided schema
 ```
 
 SvelteKit with SSR:
@@ -59,54 +57,49 @@ SvelteKit with SSR:
 import { WritableSearchParams } from "svelte-writable-search-params";
 import { page } from "$app/state";
 
-// use page.url.search instead so tha the initial render will be accurate
-const params = WritableSearchParams(page.url.search);
+// use page.url.search instead as window is only available in the browser
+const params = WritableSearchParams(MySchema, page.url.search);
 ```
 
-For other frameworks/setup, refer to their documentation on how to read the current search parameters.
+For other frameworks, refer to their documentation on how to read the current search parameters.
 
-### Reading Params (Unvalidated)
-
-```javascript
-const pageParam = $derived(params.current.get("page"));
-// pageParam will be string | null
-```
-
-### Writing Params (Unvalidated)
-
-```javascript
-params.current.set("page", "2");
-```
-
-### Other Methods
-
-Since `params.current` is an instance of `SvelteURLSearchParams`, any valid methods and properties for `SvelteURLSearchParams` can be used. Any updates and changes to it will be automatically reflected in the URL.
-
-**⚠️ Note:** Always use `params.current` or a `$derived(...)` value to get reactive parameters, as the entire instance will be replaced on external navigation. For example, when the user navigates back and forth with the browser controls.
-
-## Validated Params
+## Usage
 
 ```javascript
 // using Valibot as an example, feel free to use your favourite library
-const StrToIntSchema = v.pipe(v.string(), v.toNumber(), v.integer());
+const params = WritableSearchParams(
+  v.object({
+    // always ensure you have a fallback
+    page: v.fallback(v.pipe(v.string(), v.toNumber(), v.integer()), 1),
 
-// pass in (key, schema, fallbackValue)
-const page = params.createStateFor("page", StrToIntSchema, 1);
-// fallback value will be used if validation fails, or param is missing
+    // for optional params, use an optional schema that falls back to undefined
+    // undefined and null values will be removed from URL search string, to keep the property in the URL search string, provide an empty string instead
+    q: v.fallback(v.optional(v.string()), undefined),
+  }),
+  window.location.search,
+);
 
-function increment() {
-  page.value += 1;
-  // will automatically update the URL using shallow navigation
-  // e.g. from "/books" to "/books?page=2"
-  // or from "/books?page=2" to "/books?page=3"
+const readonlyReactiveSearchQuery = $derived(params.q);
+// or read directly from params.q
+
+function nextPage() {
+  params.page += 1;
+}
+
+function prevPage() {
+  params.page -= 1;
 }
 ```
 
-Works great with search boxes too:
+You can also bind the values.
 
-```javascript
-const query = params.createStateFor("q", v.string(), "");
+<!-- prettier-ignore-start -->
+```html
+<Pagination bind:currentPage={params.page} />
 ```
+<!-- prettier-ignore-end -->
+
+Works great with search boxes too:
 
 <!-- prettier-ignore-start -->
 ```html
@@ -118,28 +111,53 @@ The URL will update as the user types, without interruptions or losing focus.
 
 ### Async Validation
 
-For async schemas, you will need to use `createStateFor_async(...)` instead.
-
-```javascript
-const page = params.createStateFor("page", MyAsyncSchema, 1);
-// page.value will be Promise<number>
-```
+Async validation is not currently supported.
 
 ## Usage with SvelteKit Remote Functions
 
 ```javascript
-const query = params.createStateFor("q", v.string(), "");
-
 // ⚠️ Note: you may need to enable experimental settings
 // Check SvelteKit documentation for details
-const foundBooks = $derived(await findBooksByTitle(query.value));
+const foundBooks = $derived(await findBooksByTitle(params.q));
 ```
 
 <!-- prettier-ignore-start -->
 ```html
-<input type="text" bind:value={query.value} placeholder="Search All Books..." />
+<input type="text" bind:value={params.q} placeholder="Search All Books..." />
 ```
 <!-- prettier-ignore-end -->
+
+## Encoding Non-String Values
+
+By default, all values will be encoded with `String(...)` when added to the URL. This works well for strings, numbers, and objects with a `.toString()` method. For other values, you can provide an encoding function to convert the value into a string.
+
+For example, with Date:
+
+```javascript
+const MySchema = v.object({
+  normalString: v.fallback(v.string(), ""),
+  laterThan: v.fallback(
+    // laterThan is represened as milliseconds from Unix Epoch
+    v.optional(v.pipe(v.string(), v.toNumber(), v.integer(), v.toDate())),
+    undefined,
+  ),
+});
+
+const params = WritableSearchParams(
+  MySchema,
+  window.location.search,
+  // provide your encoders here
+  {
+    // this function will not be called when input is undefined or null
+    laterThan(input) {
+      // return stringified milliseconds from Unix Epoch
+      return String(input.getTime());
+    },
+  },
+);
+```
+
+You do not need to provide an encoder for every single property. For properties where `String(...)` is sufficient, you can skip the encoder.
 
 ## Notes
 
@@ -148,5 +166,10 @@ This library uses shallow navigation to update the search parameters, and may no
 By default, updates will add entries to the browser's history stack, to replace instead of pushing entries, provide a configuration.
 
 ```javascript
-const params = WritableSearchParams(window.location.search, { replace: true });
+const params = WritableSearchParams(
+  MySchema,
+  window.location.search,
+  undefined, // or pass in your encoders
+  { replace: true },
+);
 ```
