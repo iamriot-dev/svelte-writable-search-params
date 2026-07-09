@@ -34,10 +34,10 @@ export function WritableSearchParams<
 
 		const result = schema["~standard"].validate(Object.fromEntries(search));
 
-		if ("then" in result) throw new Error("Async Schemas are not supported");
+		if ("then" in result) throw new Error("Async schemas are not supported");
 		if (result.issues)
 			throw new Error(
-				"Search params does not pass validation, ensure that you include catch/fallback in your schema",
+				"The search parameters did not pass validation, ensure that you include catch/fallback in your schema",
 			);
 
 		return result.value;
