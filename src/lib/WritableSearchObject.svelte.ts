@@ -84,32 +84,36 @@ export function WritableSearchParams<
 		return () => ac.abort();
 	});
 
-	$effect(() => {
-		void state;
+	return new Proxy(state, {
+		set(target, p, newValue, receiver) {
+			const didSet = Reflect.set(target, p, newValue, receiver);
 
-		const newObj: [string, string][] = Object.entries(state)
-			.map(([k, v]): [string, string] | undefined => {
-				const key = k as keyof Output;
-				if (v == null) return;
+			const newObj = Object.fromEntries(
+				Object.entries(state)
+					.map(([key, v]) => {
+						if (typeof key !== "string") return;
+						if (v == null) return;
 
-				return [
-					key as string,
-					(encoders?.[key] ?? String)(v as Output[typeof key]),
-				];
-			})
-			.filter((x) => x != null);
+						return [
+							key,
+							(encoders?.[key] ?? String)(v as Output[typeof key]),
+						] as const;
+					})
+					.filter((x) => x != null),
+			);
 
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const newSearch = new URLSearchParams(newObj);
-		newSearch.sort();
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			const newSearch = new URLSearchParams(newObj);
+			newSearch.sort();
 
-		if (newSearch.toString() !== prevStr) {
-			navigation.navigate(`?${newSearch}`, {
-				info: SYM,
-				history: config?.replace ? "replace" : "push",
-			});
-		}
+			if (newSearch.toString() !== prevStr) {
+				navigation.navigate(`?${newSearch}`, {
+					info: SYM,
+					history: config?.replace ? "replace" : "push",
+				});
+			}
+
+			return didSet;
+		},
 	});
-
-	return state;
 }
